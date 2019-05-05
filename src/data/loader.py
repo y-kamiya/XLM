@@ -151,6 +151,7 @@ def load_mono_data(params, data):
                     dataset.remove_long_sentences(params.max_len)
 
                 # if there are several processes on the same machine, we can split the dataset
+                params.n_gpu_per_node = 0
                 if splt == 'train' and params.n_gpu_per_node > 1 and params.split_data:
                     n_sent = len(dataset) // params.n_gpu_per_node
                     a = n_sent * params.local_rank

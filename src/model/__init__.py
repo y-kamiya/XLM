@@ -141,8 +141,53 @@ def build_model(params, dico):
             # reload encoder
             if enc_path != '':
                 logger.info("Reloading encoder from %s ..." % enc_path)
-                enc_reload = torch.load(enc_path, map_location=lambda storage, loc: storage.cuda(params.local_rank))
-                enc_reload = enc_reload['model' if 'model' in enc_reload else 'encoder']
+                # enc_reload = torch.load(enc_path, map_location=lambda storage, loc: storage.cuda(params.local_rank))
+                enc_reload = torch.load(enc_path, map_location=lambda storage, loc: storage.cpu())
+                # enc_reload = enc_reload['model' if 'model' in enc_reload else 'encoder']
+
+                # print(enc_reload.keys())
+
+                key_map = {
+                  'bert.embeddings.word_embeddings.weight':'embeddings.weight',
+                  'bert.embeddings.position_embeddings.weight':'position_embeddings.weight',
+                  'bert.embeddings.token_type_embeddings.weight':'lang_embeddings.weight',
+                  'bert.embeddings.LayerNorm.gamma': 'layer_norm_emb.weight',
+                  'bert.embeddings.LayerNorm.beta': 'layer_norm_emb.bias',
+                  'bert.pooler.dense.weight': 'pred_layer.proj.weight',
+                  'bert.pooler.dense.bias': 'pred_layer.proj.bias',
+                }
+
+                for i in range(12):
+                  key_map[f'bert.encoder.layer.{i}.attention.self.query.weight']      = f'attentions.{i}.q_lin.weight'
+                  key_map[f'bert.encoder.layer.{i}.attention.self.query.bias']        = f'attentions.{i}.q_lin.bias'
+                  key_map[f'bert.encoder.layer.{i}.attention.self.key.weight']        = f'attentions.{i}.k_lin.weight'
+                  key_map[f'bert.encoder.layer.{i}.attention.self.key.bias']          = f'attentions.{i}.k_lin.bias'
+                  key_map[f'bert.encoder.layer.{i}.attention.self.value.weight']      = f'attentions.{i}.v_lin.weight'
+                  key_map[f'bert.encoder.layer.{i}.attention.self.value.bias']        = f'attentions.{i}.v_lin.bias'
+                  key_map[f'bert.encoder.layer.{i}.attention.output.dense.weight']    = f'attentions.{i}.out_lin.weight'
+                  key_map[f'bert.encoder.layer.{i}.attention.output.dense.bias']      = f'attentions.{i}.out_lin.bias'
+                  key_map[f'bert.encoder.layer.{i}.attention.output.LayerNorm.gamma'] = f'layer_norm1.{i}.weight'
+                  key_map[f'bert.encoder.layer.{i}.attention.output.LayerNorm.beta']  = f'layer_norm1.{i}.bias'
+                  key_map[f'bert.encoder.layer.{i}.intermediate.dense.weight']        = f'ffns.{i}.lin1.weight'
+                  key_map[f'bert.encoder.layer.{i}.intermediate.dense.bias']          = f'ffns.{i}.lin1.bias'
+                  key_map[f'bert.encoder.layer.{i}.output.dense.weight']              = f'ffns.{i}.lin2.weight'
+                  key_map[f'bert.encoder.layer.{i}.output.dense.bias']                = f'ffns.{i}.lin2.bias'
+                  key_map[f'bert.encoder.layer.{i}.output.LayerNorm.gamma']           = f'layer_norm2.{i}.weight'
+                  key_map[f'bert.encoder.layer.{i}.output.LayerNorm.beta']            = f'layer_norm2.{i}.bias'
+
+                for old, new in key_map.items():
+                    enc_reload[new] = enc_reload.pop(old)
+
+                enc_reload.pop("cls.predictions.bias")
+                enc_reload.pop("cls.predictions.transform.dense.weight")
+                enc_reload.pop("cls.predictions.transform.dense.bias")
+                enc_reload.pop("cls.predictions.transform.LayerNorm.gamma")
+                enc_reload.pop("cls.predictions.transform.LayerNorm.beta")
+                enc_reload.pop("cls.predictions.decoder.weight")
+                enc_reload.pop("cls.seq_relationship.weight")
+                enc_reload.pop("cls.seq_relationship.bias")
+
+                # print([key for key in enc_reload.keys()])
                 if all([k.startswith('module.') for k in enc_reload.keys()]):
                     enc_reload = {k[len('module.'):]: v for k, v in enc_reload.items()}
                 encoder.load_state_dict(enc_reload)
