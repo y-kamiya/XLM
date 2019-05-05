@@ -224,11 +224,15 @@ done
 # concatenate monolingual data files
 if ! [[ -f "$SRC_RAW" ]]; then
   echo "Concatenating $SRC monolingual data..."
-  cat $(ls $SRC/news*$SRC* | grep -v gz) | head -n $N_MONO > $SRC_RAW
+  gzip -dc $SRC/news.2007.en.shuffled.gz > news.2007.en.shuffled
+  cat news.2007.en.shuffled | head -n $N_MONO > $SRC_RAW
+  # cat $(ls $SRC/news*$SRC* | grep -v gz) | head -n $N_MONO > $SRC_RAW
 fi
 if ! [[ -f "$TGT_RAW" ]]; then
   echo "Concatenating $TGT monolingual data..."
-  cat $(ls $TGT/news*$TGT* | grep -v gz) | head -n $N_MONO > $TGT_RAW
+  gzip -dc $TGT/news.2007.fr.shuffled.gz > news.2007.fr.shuffled
+  cat news.2007.fr.shuffled | head -n $N_MONO > $TGT_RAW
+  # cat $(ls $TGT/news*$TGT* | grep -v gz) | head -n $N_MONO > $TGT_RAW
 fi
 echo "$SRC monolingual data concatenated in: $SRC_RAW"
 echo "$TGT monolingual data concatenated in: $TGT_RAW"
