@@ -10,4 +10,5 @@ sudo chmod 777 /opt/anaconda3/lib/python3.7/site-packages
 pip install -v --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" .
 popd
 
-./get-data-nmt.sh --src en --tgt fr --reload_codes codes_enfr --reload_vocab vocab_enfr
+# ./get-data-nmt.sh --src en --tgt fr --reload_codes codes_enfr --reload_vocab vocab_enfr
+./get-data-nmt.sh --src en --tgt fr
