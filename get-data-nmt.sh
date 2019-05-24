@@ -96,6 +96,8 @@ SRC_RAW=$MONO_PATH/$SRC/all.$SRC
 TGT_RAW=$MONO_PATH/$TGT/all.$TGT
 SRC_TOK=$SRC_RAW.tok
 TGT_TOK=$TGT_RAW.tok
+SRC_NORM=$SRC_RAW.norm
+TGT_NORM=$TGT_RAW.norm
 
 # BPE / vocab files
 BPE_CODES=$PROC_PATH/codes
@@ -234,21 +236,29 @@ echo "$SRC monolingual data concatenated in: $SRC_RAW"
 echo "$TGT monolingual data concatenated in: $TGT_RAW"
 
 
+# normalize raw text
+SRC_PREPROCESSING="$REPLACE_UNICODE_PUNCT | $NORM_PUNC -l $SRC | $REM_NON_PRINT_CHAR"
+TGT_PREPROCESSING="$REPLACE_UNICODE_PUNCT | $NORM_PUNC -l $TGT | $REM_NON_PRINT_CHAR"
+
+cat $SRC_RAW | $SRC_PREPROCESSING > $SRC_NORM
+cat $TGT_RAW | $TGT_PREPROCESSING > $TGT_NORM
+
+
+# apply sentencepiece
 SPM_TRAIN=$TOOLS_PATH/sentencepiece/build/src/spm_train
 SPM_ENCODE=$TOOLS_PATH/sentencepiece/build/src/spm_encode
 MODEL_PATH=$PROC_PATH/xlm.model
 
 if ! [[ -f "$MODEL_PATH" ]]; then
   pushd $PROC_PATH
-  $SPM_TRAIN --input=$SRC_RAW,$TGT_RAW --model_prefix=xlm --vocab_size=$CODES --character_coverage=0.9995 --model_type=unigram --control_symbols='<special0>,<special1>' --bos_id=0 --eos_id=1 --pad_id=2 --unk_id=3
-#--input_sentence_size $N_MONO --shuffle_input_sentence
+  $SPM_TRAIN --input=$SRC_NORM,$TGT_NORM --model_prefix=xlm --vocab_size=$CODES --character_coverage=1.0 --model_type=unigram --control_symbols='<special0>,<special1>' --bos_id=0 --eos_id=1 --pad_id=2 --unk_id=3 --input_sentence_size 2000000 --shuffle_input_sentence
   popd
 fi
 
-cat $SRC_RAW | $SPM_ENCODE --model=$MODEL_PATH --output_format=piece > $SRC_TRAIN_BPE
-cat $TGT_RAW | $SPM_ENCODE --model=$MODEL_PATH --output_format=piece > $TGT_TRAIN_BPE
+cat $SRC_NORM | $SPM_ENCODE --model=$MODEL_PATH --output_format=piece > $SRC_TRAIN_BPE
+cat $TGT_NORM | $SPM_ENCODE --model=$MODEL_PATH --output_format=piece > $TGT_TRAIN_BPE
 
-cat $SRC_RAW $TGT_RAW | $SPM_ENCODE --model=$MODEL_PATH --generate_vocabulary > $FULL_VOCAB
+cat $SRC_NORM $TGT_NORM | $SPM_ENCODE --model=$MODEL_PATH --generate_vocabulary > $FULL_VOCAB
 
 # # check number of lines
 # if ! [[ "$(wc -l < $SRC_RAW)" -eq "$N_MONO" ]]; then echo "ERROR: Number of lines does not match! Be sure you have $N_MONO sentences in your $SRC monolingual data."; exit; fi
