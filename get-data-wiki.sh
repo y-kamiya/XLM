@@ -25,6 +25,7 @@ LOWER_REMOVE_ACCENT=$TOOLS_PATH/lowercase_and_remove_accent.py
 # Wiki data
 WIKI_DUMP_NAME=${lg}wiki-latest-pages-articles.xml.bz2
 WIKI_DUMP_LINK=https://dumps.wikimedia.org/${lg}wiki/latest/$WIKI_DUMP_NAME
+WIKI_EXTRACTED=$WIKI_PATH/bz2/extracted_${lg}
 
 # install tools
 ./install-tools.sh
@@ -36,9 +37,10 @@ mkdir -p $WIKI_PATH/txt
 
 # download Wikipedia dump
 echo "Downloading $lg Wikipedia dump from $WIKI_DUMP_LINK ..."
-if ! [[ -f "$WIKI_PATH/bz2/$WIKI_DUMP_NAME" ]]; then
+if ! [[ -d "$WIKI_EXTRACTED" ]]; then
     wget -c $WIKI_DUMP_LINK -P $WIKI_PATH/bz2/
-    python $TOOLS_PATH/wikiextractor/WikiExtractor.py $WIKI_PATH/bz2/$WIKI_DUMP_NAME --processes 8 -q -o $WIKI_PATH/bz2/extracted_${lg}
+    python $TOOLS_PATH/wikiextractor/WikiExtractor.py $WIKI_PATH/bz2/$WIKI_DUMP_NAME --processes 8 -q -o $WIKI_EXTRACTED
+    rm $WIKI_PATH/bz2/$WIKI_DUMP_NAME
 fi
 echo "Downloaded $WIKI_DUMP_NAME in $WIKI_PATH/bz2/$WIKI_DUMP_NAME"
 
@@ -52,22 +54,22 @@ if [ ! -f $WIKI_PATH/txt/$lg.all ]; then
   | python $LOWER_REMOVE_ACCENT \
   > $WIKI_PATH/txt/$lg.all
 fi
-echo "*** Tokenized (+ lowercase + accent-removal) $lg Wikipedia dump to $WIKI_PATH/txt/train.${lg} ***"
+echo "*** Tokenized (+ lowercase + accent-removal) $lg Wikipedia dump to $WIKI_PATH/txt/${lg}.all ***"
 
-# split into train / valid / test
-echo "*** Split into train / valid / test ***"
-split_data() {
-    get_seeded_random() {
-        seed="$1"; openssl enc -aes-256-ctr -pass pass:"$seed" -nosalt </dev/zero 2>/dev/null
-    };
-    NLINES=`wc -l $1  | awk -F " " '{print $1}'`;
-    NTRAIN=$((NLINES - 10000));
-    NVAL=$((NTRAIN + 5000));
-    shuf --random-source=<(get_seeded_random 42) $1 | head -$NTRAIN             > $2;
-    shuf --random-source=<(get_seeded_random 42) $1 | head -$NVAL | tail -5000  > $3;
-    shuf --random-source=<(get_seeded_random 42) $1 | tail -5000                > $4;
-}
-split_data $WIKI_PATH/txt/$lg.all $WIKI_PATH/txt/$lg.train $WIKI_PATH/txt/$lg.valid $WIKI_PATH/txt/$lg.test
+# # split into train / valid / test
+# echo "*** Split into train / valid / test ***"
+# split_data() {
+#     get_seeded_random() {
+#         seed="$1"; openssl enc -aes-256-ctr -pass pass:"$seed" -nosalt </dev/zero 2>/dev/null
+#     };
+#     NLINES=`wc -l $1  | awk -F " " '{print $1}'`;
+#     NTRAIN=$((NLINES - 10000));
+#     NVAL=$((NTRAIN + 5000));
+#     shuf --random-source=<(get_seeded_random 42) $1 | head -$NTRAIN             > $2;
+#     shuf --random-source=<(get_seeded_random 42) $1 | head -$NVAL | tail -5000  > $3;
+#     shuf --random-source=<(get_seeded_random 42) $1 | tail -5000                > $4;
+# }
+# split_data $WIKI_PATH/txt/$lg.all $WIKI_PATH/txt/$lg.train $WIKI_PATH/txt/$lg.valid $WIKI_PATH/txt/$lg.test
 
 # Get BPE codes and vocab
 # wget -c https://dl.fbaipublicfiles.com/XLM/codes_xnli_15 -P $MAIN_PATH
