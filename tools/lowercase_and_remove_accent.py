@@ -41,6 +41,8 @@ def run_strip_accents(text):
 
 
 for line in sys.stdin:
+    if len(line) < 10:
+        continue
     line = convert_to_unicode(line.rstrip().lower())
     line = run_strip_accents(line)
-    print('{}'.format(line.lower().encode('utf-8')))
+    print(u'%s' % line.lower())

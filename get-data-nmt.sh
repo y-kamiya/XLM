@@ -146,8 +146,8 @@ fi
 if [ "$SRC" == "en" -a "$TGT" == "ja" ]; then
   PARA_SRC_VALID=$PARA_PATH/en-ja/IWSLT17.TED.tst2010.en-ja.en.xml
   PARA_TGT_VALID=$PARA_PATH/en-ja/IWSLT17.TED.tst2010.en-ja.ja.xml
-  PARA_SRC_TEST=$PARA_PATH/en-ja/IWSLT17.TED.tst2011.en-ja.en.xml
-  PARA_TGT_TEST=$PARA_PATH/en-ja/IWSLT17.TED.tst2011.en-ja.ja.xml
+  PARA_SRC_TEST=$PARA_PATH/additional/all.en
+  PARA_TGT_TEST=$PARA_PATH/additional/all.ja
 fi
 
 # install tools
@@ -225,7 +225,8 @@ if [ "$SRC" == "ja" -o "$TGT" == "ja" ]; then
     cd $MAIN_PATH
     $MAIN_PATH/get-data-wiki.sh 'ja'
     mkdir -p $MONO_PATH/ja
-    cat $MAIN_PATH/data/wiki/txt/ja.all | shuf -n $N_MONO > $MONO_PATH/ja/all.ja
+    cat $MAIN_PATH/data/wiki/txt/ja.all | sed -e 's/。/\0\n/g' | sed -e '/^$/d' | shuf -n $N_MONO > $MONO_PATH/ja/all.ja
+    $MAIN_PATH/prepare-spm-input-enja.sh
   fi
 fi
 
@@ -257,21 +258,29 @@ echo "$SRC monolingual data concatenated in: $SRC_RAW"
 echo "$TGT monolingual data concatenated in: $TGT_RAW"
 
 
+# normalize raw text
+SRC_PREPROCESSING="$REPLACE_UNICODE_PUNCT | $NORM_PUNC -l $SRC | $REM_NON_PRINT_CHAR"
+TGT_PREPROCESSING="$REPLACE_UNICODE_PUNCT | $NORM_PUNC -l $TGT | $REM_NON_PRINT_CHAR"
+  
 # apply sentencepiece
 SPM_TRAIN=$TOOLS_PATH/sentencepiece/build/src/spm_train
 SPM_ENCODE=$TOOLS_PATH/sentencepiece/build/src/spm_encode
 MODEL_PATH=$PROC_PATH/xlm.model
+SPM_INPUT_PATH=$PROC_PATH/spm_input
 
 if ! [[ -f "$MODEL_PATH" ]]; then
-  # normalize raw text
-  SRC_PREPROCESSING="$REPLACE_UNICODE_PUNCT | $NORM_PUNC -l $SRC | $REM_NON_PRINT_CHAR"
-  TGT_PREPROCESSING="$REPLACE_UNICODE_PUNCT | $NORM_PUNC -l $TGT | $REM_NON_PRINT_CHAR"
-  
   cat $SRC_RAW | $SRC_PREPROCESSING > $SRC_NORM
   cat $TGT_RAW | $TGT_PREPROCESSING > $TGT_NORM
 
+  SPM_OPTION_SHUFFLE=""
+  if ! [[ -f "$SPM_INPUT_PATH" ]]; then
+      echo "spm_input_file is not specified. use mono data shuffled"
+      SPM_INPUT_PATH=$SRC_NORM,$TGT_NORM 
+      SPM_OPTION_SHUFFLE=" --input_sentence_size $SPM_N_SENTENCES --shuffle_input_sentence "
+  fi
+
   pushd $PROC_PATH
-  $SPM_TRAIN --input=$SRC_NORM,$TGT_NORM --model_prefix=xlm --vocab_size=$CODES --character_coverage=$SPM_CHARACTER_COVERAGE --model_type=unigram --control_symbols='<special0>,<special1>' --bos_id=0 --eos_id=1 --pad_id=2 --unk_id=3 --input_sentence_size $SPM_N_SENTENCES --shuffle_input_sentence
+  $SPM_TRAIN --input=$SPM_INPUT_PATH --model_prefix=xlm --vocab_size=$CODES --character_coverage=$SPM_CHARACTER_COVERAGE --model_type=unigram --control_symbols='<special0>,<special1>' --bos_id=0 --eos_id=1 --pad_id=2 --unk_id=3 $SPM_OPTION_SHUFFLE
   popd
 
   cat $SRC_NORM | $SPM_ENCODE --model=$MODEL_PATH --output_format=piece > $SRC_TRAIN_BPE
@@ -392,22 +401,35 @@ if ! [[ -f "$PARA_TGT_VALID" ]]; then echo "$PARA_TGT_VALID is not found!"; exit
 if ! [[ -f "$PARA_SRC_TEST" ]];  then echo "$PARA_SRC_TEST is not found!";  exit; fi
 if ! [[ -f "$PARA_TGT_TEST" ]];  then echo "$PARA_TGT_TEST is not found!";  exit; fi
 
-echo "Tokenizing valid and test data..."
+# echo "Tokenizing valid and test data..."
 # eval "$INPUT_FROM_SGM < $PARA_SRC_VALID | $SRC_PREPROCESSING > $PARA_SRC_VALID"
 # eval "$INPUT_FROM_SGM < $PARA_TGT_VALID | $TGT_PREPROCESSING > $PARA_TGT_VALID"
 # eval "$INPUT_FROM_SGM < $PARA_SRC_TEST  | $SRC_PREPROCESSING > $PARA_SRC_TEST"
 # eval "$INPUT_FROM_SGM < $PARA_TGT_TEST  | $TGT_PREPROCESSING > $PARA_TGT_TEST"
 
-echo "Applying BPE to valid and test files..."
+# echo "Applying BPE to valid and test files..."
 # $FASTBPE applybpe $PARA_SRC_VALID_BPE $PARA_SRC_VALID $BPE_CODES $SRC_VOCAB
 # $FASTBPE applybpe $PARA_TGT_VALID_BPE $PARA_TGT_VALID $BPE_CODES $TGT_VOCAB
 # $FASTBPE applybpe $PARA_SRC_TEST_BPE  $PARA_SRC_TEST  $BPE_CODES $SRC_VOCAB
 # $FASTBPE applybpe $PARA_TGT_TEST_BPE  $PARA_TGT_TEST  $BPE_CODES $TGT_VOCAB
 
-eval "$INPUT_FROM_SGM < $PARA_SRC_VALID | $SPM_ENCODE --model=$MODEL_PATH --output_format=piece > $PARA_SRC_VALID_BPE"
-eval "$INPUT_FROM_SGM < $PARA_TGT_VALID | $SPM_ENCODE --model=$MODEL_PATH --output_format=piece > $PARA_TGT_VALID_BPE"
-eval "$INPUT_FROM_SGM < $PARA_SRC_TEST  | $SPM_ENCODE --model=$MODEL_PATH --output_format=piece > $PARA_SRC_TEST_BPE"
-eval "$INPUT_FROM_SGM < $PARA_TGT_TEST  | $SPM_ENCODE --model=$MODEL_PATH --output_format=piece > $PARA_TGT_TEST_BPE"
+echo "Creating valid and test data"
+
+function create_para_bpe()
+{
+    INPUT=$1
+    OUTPUT=$2
+    ext="${INPUT##*.}"
+    if [[ $ext = "sgm" || $ext = 'xml' ]];then
+        eval "$INPUT_FROM_SGM < $INPUT | $SRC_PREPROCESSING | $SPM_ENCODE --model=$MODEL_PATH --output_format=piece > $OUTPUT"
+    else
+        cat $INPUT | $SRC_PREPROCESSING | $SPM_ENCODE --model=$MODEL_PATH --output_format=piece > $OUTPUT
+    fi
+}
+create_para_bpe $PARA_SRC_VALID $PARA_SRC_VALID_BPE
+create_para_bpe $PARA_TGT_VALID $PARA_TGT_VALID_BPE
+create_para_bpe $PARA_SRC_TEST $PARA_SRC_TEST_BPE
+create_para_bpe $PARA_TGT_TEST $PARA_TGT_TEST_BPE
 
 echo "Binarizing data..."
 rm -f $PARA_SRC_VALID_BPE.pth $PARA_TGT_VALID_BPE.pth $PARA_SRC_TEST_BPE.pth $PARA_TGT_TEST_BPE.pth
