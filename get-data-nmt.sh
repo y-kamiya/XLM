@@ -219,7 +219,7 @@ if [ "$SRC" == "ro" -o "$TGT" == "ro" ]; then
 fi
 
 if [ "$SRC" == "ja" -o "$TGT" == "ja" ]; then
-  # SPM_CHARACTER_COVERAGE=0.9995
+  SPM_CHARACTER_COVERAGE=0.9995
 
   if ! [[ -f "$MONO_PATH/ja/all.ja" ]]; then
     cd $MAIN_PATH
