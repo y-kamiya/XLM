@@ -285,101 +285,7 @@ if ! [[ -f "$MODEL_PATH" ]]; then
 
   cat $SRC_NORM | $SPM_ENCODE --model=$MODEL_PATH --output_format=piece > $SRC_TRAIN_BPE
   cat $TGT_NORM | $SPM_ENCODE --model=$MODEL_PATH --output_format=piece > $TGT_TRAIN_BPE
-  
-  cat $SRC_NORM $TGT_NORM | $SPM_ENCODE --model=$MODEL_PATH --generate_vocabulary > $FULL_VOCAB
 fi
-
-
-# # check number of lines
-# if ! [[ "$(wc -l < $SRC_RAW)" -eq "$N_MONO" ]]; then echo "ERROR: Number of lines does not match! Be sure you have $N_MONO sentences in your $SRC monolingual data."; exit; fi
-# if ! [[ "$(wc -l < $TGT_RAW)" -eq "$N_MONO" ]]; then echo "ERROR: Number of lines does not match! Be sure you have $N_MONO sentences in your $TGT monolingual data."; exit; fi
-
-# # preprocessing commands - special case for Romanian
-# if [ "$SRC" == "ro" ]; then
-#   SRC_PREPROCESSING="$REPLACE_UNICODE_PUNCT | $NORM_PUNC -l $SRC | $REM_NON_PRINT_CHAR | $NORMALIZE_ROMANIAN | $REMOVE_DIACRITICS | $TOKENIZER -l $SRC -no-escape -threads $N_THREADS"
-# else
-#   SRC_PREPROCESSING="$REPLACE_UNICODE_PUNCT | $NORM_PUNC -l $SRC | $REM_NON_PRINT_CHAR |                                            $TOKENIZER  -l $TGT -no-escape -threads $N_THREADS"
-# fi
-# if [ "$TGT" == "ro" ]; then
-#   TGT_PREPROCESSING="$REPLACE_UNICODE_PUNCT | $NORM_PUNC -l $TGT | $REM_NON_PRINT_CHAR | $NORMALIZE_ROMANIAN | $REMOVE_DIACRITICS | $TOKENIZER -l $TGT -no-escape -threads $N_THREADS"
-# else
-#   TGT_PREPROCESSING="$REPLACE_UNICODE_PUNCT | $NORM_PUNC -l $TGT | $REM_NON_PRINT_CHAR |                                            $TOKENIZER  -l $TGT -no-escape -threads $N_THREADS"
-# fi
-#
-# # tokenize data
-# if ! [[ -f "$SRC_TOK" ]]; then
-#   echo "Tokenize $SRC monolingual data..."
-#   eval "cat $SRC_RAW | $SRC_PREPROCESSING > $SRC_TOK"
-# fi
-#
-# if ! [[ -f "$TGT_TOK" ]]; then
-#   echo "Tokenize $TGT monolingual data..."
-#   eval "cat $TGT_RAW | $TGT_PREPROCESSING > $TGT_TOK"
-# fi
-# echo "$SRC monolingual data tokenized in: $SRC_TOK"
-# echo "$TGT monolingual data tokenized in: $TGT_TOK"
-#
-# # reload BPE codes
-# cd $MAIN_PATH
-# if [ ! -f "$BPE_CODES" ] && [ -f "$RELOAD_CODES" ]; then
-#   echo "Reloading BPE codes from $RELOAD_CODES ..."
-#   cp $RELOAD_CODES $BPE_CODES
-# fi
-#
-# # learn BPE codes
-# if [ ! -f "$BPE_CODES" ]; then
-#   echo "Learning BPE codes..."
-#   $FASTBPE learnbpe $CODES $SRC_TOK $TGT_TOK > $BPE_CODES
-# fi
-# echo "BPE learned in $BPE_CODES"
-#
-# # apply BPE codes
-# if ! [[ -f "$SRC_TRAIN_BPE" ]]; then
-#   echo "Applying $SRC BPE codes..."
-#   $FASTBPE applybpe $SRC_TRAIN_BPE $SRC_TOK $BPE_CODES
-# fi
-# if ! [[ -f "$TGT_TRAIN_BPE" ]]; then
-#   echo "Applying $TGT BPE codes..."
-#   $FASTBPE applybpe $TGT_TRAIN_BPE $TGT_TOK $BPE_CODES
-# fi
-# echo "BPE codes applied to $SRC in: $SRC_TRAIN_BPE"
-# echo "BPE codes applied to $TGT in: $TGT_TRAIN_BPE"
-#
-# # extract source and target vocabulary
-# if ! [[ -f "$SRC_VOCAB" && -f "$TGT_VOCAB" ]]; then
-#   echo "Extracting vocabulary..."
-#   $FASTBPE getvocab $SRC_TRAIN_BPE > $SRC_VOCAB
-#   $FASTBPE getvocab $TGT_TRAIN_BPE > $TGT_VOCAB
-# fi
-# echo "$SRC vocab in: $SRC_VOCAB"
-# echo "$TGT vocab in: $TGT_VOCAB"
-#
-# # reload full vocabulary
-# cd $MAIN_PATH
-# if [ ! -f "$FULL_VOCAB" ] && [ -f "$RELOAD_VOCAB" ]; then
-#   echo "Reloading vocabulary from $RELOAD_VOCAB ..."
-#   cp $RELOAD_VOCAB $FULL_VOCAB
-# fi
-#
-# # extract full vocabulary
-# if ! [[ -f "$FULL_VOCAB" ]]; then
-#   echo "Extracting vocabulary..."
-#   $FASTBPE getvocab $SRC_TRAIN_BPE $TGT_TRAIN_BPE > $FULL_VOCAB
-# fi
-# echo "Full vocab in: $FULL_VOCAB"
-
-# binarize data
-if ! [[ -f "$SRC_TRAIN_BPE.pth" ]]; then
-  echo "Binarizing $SRC data..."
-  $MAIN_PATH/preprocess.py $FULL_VOCAB $SRC_TRAIN_BPE
-fi
-if ! [[ -f "$TGT_TRAIN_BPE.pth" ]]; then
-  echo "Binarizing $TGT data..."
-  $MAIN_PATH/preprocess.py $FULL_VOCAB $TGT_TRAIN_BPE
-fi
-echo "$SRC binarized data in: $SRC_TRAIN_BPE.pth"
-echo "$TGT binarized data in: $TGT_TRAIN_BPE.pth"
-
 
 #
 # Download parallel data (for evaluation only)
@@ -401,18 +307,6 @@ if ! [[ -f "$PARA_TGT_VALID" ]]; then echo "$PARA_TGT_VALID is not found!"; exit
 if ! [[ -f "$PARA_SRC_TEST" ]];  then echo "$PARA_SRC_TEST is not found!";  exit; fi
 if ! [[ -f "$PARA_TGT_TEST" ]];  then echo "$PARA_TGT_TEST is not found!";  exit; fi
 
-# echo "Tokenizing valid and test data..."
-# eval "$INPUT_FROM_SGM < $PARA_SRC_VALID | $SRC_PREPROCESSING > $PARA_SRC_VALID"
-# eval "$INPUT_FROM_SGM < $PARA_TGT_VALID | $TGT_PREPROCESSING > $PARA_TGT_VALID"
-# eval "$INPUT_FROM_SGM < $PARA_SRC_TEST  | $SRC_PREPROCESSING > $PARA_SRC_TEST"
-# eval "$INPUT_FROM_SGM < $PARA_TGT_TEST  | $TGT_PREPROCESSING > $PARA_TGT_TEST"
-
-# echo "Applying BPE to valid and test files..."
-# $FASTBPE applybpe $PARA_SRC_VALID_BPE $PARA_SRC_VALID $BPE_CODES $SRC_VOCAB
-# $FASTBPE applybpe $PARA_TGT_VALID_BPE $PARA_TGT_VALID $BPE_CODES $TGT_VOCAB
-# $FASTBPE applybpe $PARA_SRC_TEST_BPE  $PARA_SRC_TEST  $BPE_CODES $SRC_VOCAB
-# $FASTBPE applybpe $PARA_TGT_TEST_BPE  $PARA_TGT_TEST  $BPE_CODES $TGT_VOCAB
-
 echo "Creating valid and test data"
 
 function create_para_bpe()
@@ -421,15 +315,36 @@ function create_para_bpe()
     OUTPUT=$2
     ext="${INPUT##*.}"
     if [[ $ext = "sgm" || $ext = 'xml' ]];then
-        eval "$INPUT_FROM_SGM < $INPUT | $SRC_PREPROCESSING | $SPM_ENCODE --model=$MODEL_PATH --output_format=piece > $OUTPUT"
+        eval "$INPUT_FROM_SGM < $INPUT | $SRC_PREPROCESSING > $INPUT.norm"
+        cat $INPUT.norm | $SPM_ENCODE --model=$MODEL_PATH --output_format=piece > $OUTPUT
     else
-        cat $INPUT | $SRC_PREPROCESSING | $SPM_ENCODE --model=$MODEL_PATH --output_format=piece > $OUTPUT
+        cat $INPUT | $SRC_PREPROCESSING > $INPUT.norm
+        cat $INPUT.norm | $SPM_ENCODE --model=$MODEL_PATH --output_format=piece > $OUTPUT
     fi
 }
 create_para_bpe $PARA_SRC_VALID $PARA_SRC_VALID_BPE
 create_para_bpe $PARA_TGT_VALID $PARA_TGT_VALID_BPE
 create_para_bpe $PARA_SRC_TEST $PARA_SRC_TEST_BPE
 create_para_bpe $PARA_TGT_TEST $PARA_TGT_TEST_BPE
+
+
+echo "Creating vacabulary file"
+cat $SRC_NORM $TGT_NORM $PARA_SRC_VALID.norm $PARA_TGT_VALID.norm $PARA_SRC_TEST.norm $PARA_TGT_TEST.norm \
+| $SPM_ENCODE --model=$MODEL_PATH --generate_vocabulary > $FULL_VOCAB
+
+
+# binarize data
+if ! [[ -f "$SRC_TRAIN_BPE.pth" ]]; then
+  echo "Binarizing $SRC data..."
+  $MAIN_PATH/preprocess.py $FULL_VOCAB $SRC_TRAIN_BPE
+fi
+exit
+if ! [[ -f "$mGT_TRAIN_BPE.pth" ]]; then
+  echo "Binarizing $TGT data..."
+  $MAIN_PATH/preprocess.py $FULL_VOCAB $TGT_TRAIN_BPE
+fi
+echo "$SRC binarized data in: $SRC_TRAIN_BPE.pth"
+echo "$TGT binarized data in: $TGT_TRAIN_BPE.pth"
 
 echo "Binarizing data..."
 rm -f $PARA_SRC_VALID_BPE.pth $PARA_TGT_VALID_BPE.pth $PARA_SRC_TEST_BPE.pth $PARA_TGT_TEST_BPE.pth
