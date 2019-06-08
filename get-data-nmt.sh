@@ -53,8 +53,8 @@ if [ "$TGT" == "" ]; then echo "--tgt not provided"; exit; fi
 if [ "$SRC" == "$TGT" ]; then echo "source and target cannot be identical"; exit; fi
 if [ "$SRC" \> "$TGT" ]; then echo "please ensure SRC < TGT"; exit; fi
 if [ "$RELOAD_CODES" != "" ] && [ ! -f "$RELOAD_CODES" ]; then echo "cannot locate BPE codes"; exit; fi
-if [ "$RELOAD_VOCAB" != "" ] && [ ! -f "$RELOAD_VOCAB" ]; then echo "cannot locate vocabulary"; exit; fi
-if [ "$RELOAD_CODES" == "" -a "$RELOAD_VOCAB" != "" -o "$RELOAD_CODES" != "" -a "$RELOAD_VOCAB" == "" ]; then echo "BPE codes should be provided if and only if vocabulary is also provided"; exit; fi
+# if [ "$RELOAD_VOCAB" != "" ] && [ ! -f "$RELOAD_VOCAB" ]; then echo "cannot locate vocabulary"; exit; fi
+# if [ "$RELOAD_CODES" == "" -a "$RELOAD_VOCAB" != "" -o "$RELOAD_CODES" != "" -a "$RELOAD_VOCAB" == "" ]; then echo "BPE codes should be provided if and only if vocabulary is also provided"; exit; fi
 
 
 #
@@ -289,6 +289,10 @@ if ! [[ -f "$MODEL_PATH" ]]; then
   cat $SRC_NORM $TGT_NORM | $SPM_ENCODE --model=$MODEL_PATH --generate_vocabulary > $FULL_VOCAB
 fi
 
+if [[ -f "$RELOAD_VOCAB" ]]; then
+  echo "Reloading vocabulary from $RELOAD_VOCAB ..."
+  cp $RELOAD_VOCAB $FULL_VOCAB
+fi
 
 # # check number of lines
 # if ! [[ "$(wc -l < $SRC_RAW)" -eq "$N_MONO" ]]; then echo "ERROR: Number of lines does not match! Be sure you have $N_MONO sentences in your $SRC monolingual data."; exit; fi
@@ -370,10 +374,18 @@ fi
 
 # binarize data
 if ! [[ -f "$SRC_TRAIN_BPE.pth" ]]; then
+  if ! [[ -f "$SRC_TRAIN_BPE" ]]; then
+      echo "not found $SRC_TRAIN_BPE"
+      exit
+  fi
   echo "Binarizing $SRC data..."
   $MAIN_PATH/preprocess.py $FULL_VOCAB $SRC_TRAIN_BPE
 fi
 if ! [[ -f "$TGT_TRAIN_BPE.pth" ]]; then
+  if ! [[ -f "$TGT_TRAIN_BPE" ]]; then
+      echo "not found $TGT_TRAIN_BPE"
+      exit
+  fi
   echo "Binarizing $TGT data..."
   $MAIN_PATH/preprocess.py $FULL_VOCAB $TGT_TRAIN_BPE
 fi
