@@ -120,14 +120,18 @@ PARA_SRC_VALID_BPE=$PROC_PATH/valid.$SRC-$TGT.$SRC
 PARA_TGT_VALID_BPE=$PROC_PATH/valid.$SRC-$TGT.$TGT
 PARA_SRC_TEST_BPE=$PROC_PATH/test.$SRC-$TGT.$SRC
 PARA_TGT_TEST_BPE=$PROC_PATH/test.$SRC-$TGT.$TGT
+PARA_SRC_TRAIN_BPE=$PROC_PATH/train.$SRC-$TGT.$SRC
+PARA_TGT_TRAIN_BPE=$PROC_PATH/train.$SRC-$TGT.$TGT
 
 # valid / test file raw data
-unset PARA_SRC_VALID PARA_TGT_VALID PARA_SRC_TEST PARA_TGT_TEST
+unset PARA_SRC_VALID PARA_TGT_VALID PARA_SRC_TEST PARA_TGT_TEST PARA_SRC_TRAIN PARA_TGT_TRAIN
 if [ "$SRC" == "en" -a "$TGT" == "fr" ]; then
   PARA_SRC_VALID=$PARA_PATH/dev/newstest2013-ref.en.sgm
   PARA_TGT_VALID=$PARA_PATH/dev/newstest2013-ref.fr.sgm
   PARA_SRC_TEST=$PARA_PATH/dev/newstest2014-fren-ref.en.sgm
   PARA_TGT_TEST=$PARA_PATH/dev/newstest2014-fren-ref.fr.sgm
+  PARA_SRC_TRAIN=$PARA_PATH/dev/newstest2012-ref.en.sgm
+  PARA_TGT_TRAIN=$PARA_PATH/dev/newstest2012-ref.fr.sgm
 fi
 if [ "$SRC" == "de" -a "$TGT" == "en" ]; then
   PARA_SRC_VALID=$PARA_PATH/dev/newstest2013-ref.de.sgm
@@ -136,6 +140,8 @@ if [ "$SRC" == "de" -a "$TGT" == "en" ]; then
   PARA_TGT_TEST=$PARA_PATH/dev/newstest2016-deen-ref.en.sgm
   # PARA_SRC_TEST=$PARA_PATH/dev/newstest2014-deen-ref.de
   # PARA_TGT_TEST=$PARA_PATH/dev/newstest2014-deen-ref.en
+  PARA_SRC_TRAIN=$PARA_PATH/dev/newstest2014-deen-ref.de.sgm
+  PARA_TGT_TRAIN=$PARA_PATH/dev/newstest2014-deen-ref.en.sgm
 fi
 if [ "$SRC" == "en" -a "$TGT" == "ro" ]; then
   PARA_SRC_VALID=$PARA_PATH/dev/newsdev2016-roen-ref.en.sgm
@@ -450,6 +456,12 @@ $MAIN_PATH/preprocess.py $FULL_VOCAB $PARA_TGT_VALID_BPE
 $MAIN_PATH/preprocess.py $FULL_VOCAB $PARA_SRC_TEST_BPE
 $MAIN_PATH/preprocess.py $FULL_VOCAB $PARA_TGT_TEST_BPE
 
+
+echo "Creating parallel data for supervised training"
+create_para_bpe $PARA_SRC_TRAIN $PARA_SRC_TRAIN_BPE
+create_para_bpe $PARA_TGT_TRAIN $PARA_TGT_TRAIN_BPE
+$MAIN_PATH/preprocess.py $FULL_VOCAB $PARA_SRC_TRAIN_BPE
+$MAIN_PATH/preprocess.py $FULL_VOCAB $PARA_TGT_TRAIN_BPE
 
 #
 # Link monolingual validation and test data to parallel data
