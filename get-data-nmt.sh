@@ -130,8 +130,8 @@ if [ "$SRC" == "en" -a "$TGT" == "fr" ]; then
   PARA_TGT_VALID=$PARA_PATH/dev/newstest2013-ref.fr.sgm
   PARA_SRC_TEST=$PARA_PATH/dev/newstest2014-fren-ref.en.sgm
   PARA_TGT_TEST=$PARA_PATH/dev/newstest2014-fren-ref.fr.sgm
-  PARA_SRC_TRAIN=$PARA_PATH/dev/newstest2012-ref.en.sgm
-  PARA_TGT_TRAIN=$PARA_PATH/dev/newstest2012-ref.fr.sgm
+  PARA_SRC_TRAIN=$PARA_PATH/europarl-v7.fr-en.en
+  PARA_TGT_TRAIN=$PARA_PATH/europarl-v7.fr-en.fr
 fi
 if [ "$SRC" == "de" -a "$TGT" == "en" ]; then
   PARA_SRC_VALID=$PARA_PATH/dev/newstest2013-ref.de.sgm
@@ -140,8 +140,8 @@ if [ "$SRC" == "de" -a "$TGT" == "en" ]; then
   PARA_TGT_TEST=$PARA_PATH/dev/newstest2016-deen-ref.en.sgm
   # PARA_SRC_TEST=$PARA_PATH/dev/newstest2014-deen-ref.de
   # PARA_TGT_TEST=$PARA_PATH/dev/newstest2014-deen-ref.en
-  PARA_SRC_TRAIN=$PARA_PATH/dev/newstest2014-deen-ref.de.sgm
-  PARA_TGT_TRAIN=$PARA_PATH/dev/newstest2014-deen-ref.en.sgm
+  PARA_SRC_TRAIN=$PARA_PATH/europarl-v7.de-en.de
+  PARA_TGT_TRAIN=$PARA_PATH/europarl-v7.de-en.en
 fi
 if [ "$SRC" == "en" -a "$TGT" == "ro" ]; then
   PARA_SRC_VALID=$PARA_PATH/dev/newsdev2016-roen-ref.en.sgm
@@ -405,13 +405,23 @@ echo "$TGT binarized data in: $TGT_TRAIN_BPE.pth"
 
 cd $PARA_PATH
 
-echo "Downloading parallel data..."
+echo "Downloading and extracting parallel data..."
 wget -c http://data.statmt.org/wmt18/translation-task/dev.tgz
-wget -c https://wit3.fbk.eu/archive/2017-01-trnted//texts/en/ja/en-ja.tgz
-
-echo "Extracting parallel data..."
 tar -xzf dev.tgz
-tar -xzf en-ja.tgz
+
+if [ "$SRC" == "en" -a "$TGT" == "fr" ]; then
+    wget -c http://www.statmt.org/europarl/v7/fr-en.tgz
+    tar -xzf fr-en.tgz
+fi
+if [ "$SRC" == "de" -a "$TGT" == "en" ]; then
+    wget -c http://www.statmt.org/europarl/v7/de-en.tgz
+    tar -xzf de-en.tgz
+fi
+if [ "$SRC" == "en" -a "$TGT" == "ja" ]; then
+    wget -c https://wit3.fbk.eu/archive/2017-01-trnted//texts/en/ja/en-ja.tgz
+    tar -xzf en-ja.tgz
+fi
+
 
 # check valid and test files are here
 if ! [[ -f "$PARA_SRC_VALID" ]]; then echo "$PARA_SRC_VALID is not found!"; exit; fi
