@@ -51,6 +51,7 @@ if [ ! -f $WIKI_PATH/txt/$lg.all ]; then
   find $WIKI_PATH/bz2/extracted_${lg} -name 'wiki*' -exec cat {} \; \
   | sed -e '/^<doc id=/,+1d' -e '/<\/doc>/d' \
   | sed "/^\s*\$/d" \
+  | sed -e "s/\. /.\n/g" \
   | python $LOWER_REMOVE_ACCENT \
   > $WIKI_PATH/txt/$lg.all
 fi
