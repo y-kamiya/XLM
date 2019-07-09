@@ -74,3 +74,13 @@ fi
 #   exit 1
 # fi
 # 
+
+if [ ! -d $TOOLS_PATH/sentencepiece ]; then
+    echo "Cloning sentencepiece from GitHub repository..."
+    git clone https://github.com/google/sentencepiece.git
+    cd sentencepiece
+    mkdir build
+    cd build
+    cmake ..
+    make -j 4
+fi

@@ -46,6 +46,6 @@ if __name__ == '__main__':
             len(data['unk_words']),
             sum(data['unk_words'].values()) * 100. / (len(data['sentences']) - len(data['positions']))
         ))
-        if len(data['unk_words']) < 30:
+        if len(data['unk_words']) < 1000:
             for w, c in sorted(data['unk_words'].items(), key=lambda x: x[1])[::-1]:
                 logger.info("%s: %i" % (w, c))

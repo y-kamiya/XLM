@@ -14,6 +14,8 @@ set -e
 N_MONO=5000000  # number of monolingual sentences for each language
 CODES=60000     # number of BPE codes
 N_THREADS=16    # number of threads in data preprocessing
+SPM_CHARACTER_COVERAGE=1.0
+SPM_N_SENTENCES=2000000
 
 
 #
@@ -46,13 +48,13 @@ set -- "${POSITIONAL[@]}"
 #
 if [ "$SRC" == "" ]; then echo "--src not provided"; exit; fi
 if [ "$TGT" == "" ]; then echo "--tgt not provided"; exit; fi
-if [ "$SRC" != "de" -a "$SRC" != "en" -a "$SRC" != "fr" -a "$SRC" != "ro" ]; then echo "unknown source language"; exit; fi
-if [ "$TGT" != "de" -a "$TGT" != "en" -a "$TGT" != "fr" -a "$TGT" != "ro" ]; then echo "unknown target language"; exit; fi
+# if [ "$SRC" != "de" -a "$SRC" != "en" -a "$SRC" != "fr" -a "$SRC" != "ro" ]; then echo "unknown source language"; exit; fi
+# if [ "$TGT" != "de" -a "$TGT" != "en" -a "$TGT" != "fr" -a "$TGT" != "ro" ]; then echo "unknown target language"; exit; fi
 if [ "$SRC" == "$TGT" ]; then echo "source and target cannot be identical"; exit; fi
 if [ "$SRC" \> "$TGT" ]; then echo "please ensure SRC < TGT"; exit; fi
 if [ "$RELOAD_CODES" != "" ] && [ ! -f "$RELOAD_CODES" ]; then echo "cannot locate BPE codes"; exit; fi
-if [ "$RELOAD_VOCAB" != "" ] && [ ! -f "$RELOAD_VOCAB" ]; then echo "cannot locate vocabulary"; exit; fi
-if [ "$RELOAD_CODES" == "" -a "$RELOAD_VOCAB" != "" -o "$RELOAD_CODES" != "" -a "$RELOAD_VOCAB" == "" ]; then echo "BPE codes should be provided if and only if vocabulary is also provided"; exit; fi
+# if [ "$RELOAD_VOCAB" != "" ] && [ ! -f "$RELOAD_VOCAB" ]; then echo "cannot locate vocabulary"; exit; fi
+# if [ "$RELOAD_CODES" == "" -a "$RELOAD_VOCAB" != "" -o "$RELOAD_CODES" != "" -a "$RELOAD_VOCAB" == "" ]; then echo "BPE codes should be provided if and only if vocabulary is also provided"; exit; fi
 
 
 #
@@ -96,6 +98,8 @@ SRC_RAW=$MONO_PATH/$SRC/all.$SRC
 TGT_RAW=$MONO_PATH/$TGT/all.$TGT
 SRC_TOK=$SRC_RAW.tok
 TGT_TOK=$TGT_RAW.tok
+SRC_NORM=$SRC_RAW.norm
+TGT_NORM=$TGT_RAW.norm
 
 # BPE / vocab files
 BPE_CODES=$PROC_PATH/codes
@@ -116,28 +120,40 @@ PARA_SRC_VALID_BPE=$PROC_PATH/valid.$SRC-$TGT.$SRC
 PARA_TGT_VALID_BPE=$PROC_PATH/valid.$SRC-$TGT.$TGT
 PARA_SRC_TEST_BPE=$PROC_PATH/test.$SRC-$TGT.$SRC
 PARA_TGT_TEST_BPE=$PROC_PATH/test.$SRC-$TGT.$TGT
+PARA_SRC_TRAIN_BPE=$PROC_PATH/train.$SRC-$TGT.$SRC
+PARA_TGT_TRAIN_BPE=$PROC_PATH/train.$SRC-$TGT.$TGT
 
 # valid / test file raw data
-unset PARA_SRC_VALID PARA_TGT_VALID PARA_SRC_TEST PARA_TGT_TEST
+unset PARA_SRC_VALID PARA_TGT_VALID PARA_SRC_TEST PARA_TGT_TEST PARA_SRC_TRAIN PARA_TGT_TRAIN
 if [ "$SRC" == "en" -a "$TGT" == "fr" ]; then
-  PARA_SRC_VALID=$PARA_PATH/dev/newstest2013-ref.en
-  PARA_TGT_VALID=$PARA_PATH/dev/newstest2013-ref.fr
-  PARA_SRC_TEST=$PARA_PATH/dev/newstest2014-fren-ref.en
-  PARA_TGT_TEST=$PARA_PATH/dev/newstest2014-fren-ref.fr
+  PARA_SRC_VALID=$PARA_PATH/dev/newstest2013-ref.en.sgm
+  PARA_TGT_VALID=$PARA_PATH/dev/newstest2013-ref.fr.sgm
+  PARA_SRC_TEST=$PARA_PATH/dev/newstest2014-fren-ref.en.sgm
+  PARA_TGT_TEST=$PARA_PATH/dev/newstest2014-fren-ref.fr.sgm
+  PARA_SRC_TRAIN=$PARA_PATH/europarl-v7.fr-en.en
+  PARA_TGT_TRAIN=$PARA_PATH/europarl-v7.fr-en.fr
 fi
 if [ "$SRC" == "de" -a "$TGT" == "en" ]; then
-  PARA_SRC_VALID=$PARA_PATH/dev/newstest2013-ref.de
-  PARA_TGT_VALID=$PARA_PATH/dev/newstest2013-ref.en
-  PARA_SRC_TEST=$PARA_PATH/dev/newstest2016-ende-ref.de
-  PARA_TGT_TEST=$PARA_PATH/dev/newstest2016-deen-ref.en
+  PARA_SRC_VALID=$PARA_PATH/dev/newstest2013-ref.de.sgm
+  PARA_TGT_VALID=$PARA_PATH/dev/newstest2013-ref.en.sgm
+  PARA_SRC_TEST=$PARA_PATH/dev/newstest2016-ende-ref.de.sgm
+  PARA_TGT_TEST=$PARA_PATH/dev/newstest2016-deen-ref.en.sgm
   # PARA_SRC_TEST=$PARA_PATH/dev/newstest2014-deen-ref.de
   # PARA_TGT_TEST=$PARA_PATH/dev/newstest2014-deen-ref.en
+  PARA_SRC_TRAIN=$PARA_PATH/europarl-v7.de-en.de
+  PARA_TGT_TRAIN=$PARA_PATH/europarl-v7.de-en.en
 fi
 if [ "$SRC" == "en" -a "$TGT" == "ro" ]; then
-  PARA_SRC_VALID=$PARA_PATH/dev/newsdev2016-roen-ref.en
-  PARA_TGT_VALID=$PARA_PATH/dev/newsdev2016-enro-ref.ro
-  PARA_SRC_TEST=$PARA_PATH/dev/newstest2016-roen-ref.en
-  PARA_TGT_TEST=$PARA_PATH/dev/newstest2016-enro-ref.ro
+  PARA_SRC_VALID=$PARA_PATH/dev/newsdev2016-roen-ref.en.sgm
+  PARA_TGT_VALID=$PARA_PATH/dev/newsdev2016-enro-ref.ro.sgm
+  PARA_SRC_TEST=$PARA_PATH/dev/newstest2016-roen-ref.en.sgm
+  PARA_TGT_TEST=$PARA_PATH/dev/newstest2016-enro-ref.ro.sgm
+fi
+if [ "$SRC" == "en" -a "$TGT" == "ja" ]; then
+  PARA_SRC_VALID=$PARA_PATH/en-ja/IWSLT17.TED.tst2010.en-ja.en.xml
+  PARA_TGT_VALID=$PARA_PATH/en-ja/IWSLT17.TED.tst2010.en-ja.ja.xml
+  PARA_SRC_TEST=$PARA_PATH/additional/all.en
+  PARA_TGT_TEST=$PARA_PATH/additional/all.ja
 fi
 
 # install tools
@@ -208,16 +224,30 @@ if [ "$SRC" == "ro" -o "$TGT" == "ro" ]; then
   wget -c http://data.statmt.org/wmt16/translation-task/news.2015.ro.shuffled.gz
 fi
 
+if [ "$SRC" == "ja" -o "$TGT" == "ja" ]; then
+  # SPM_CHARACTER_COVERAGE=0.9995
+
+  if ! [[ -f "$MONO_PATH/ja/all.ja" ]]; then
+    cd $MAIN_PATH
+    $MAIN_PATH/get-data-wiki.sh 'ja'
+    mkdir -p $MONO_PATH/ja
+    cat $MAIN_PATH/data/wiki/txt/ja.all | sed -e 's/。/\0\n/g' | sed -e '/^$/d' | shuf -n $N_MONO > $MONO_PATH/ja/all.ja
+    $MAIN_PATH/prepare-spm-input-enja.sh
+  fi
+fi
+
 cd $MONO_PATH
 
 # decompress monolingual data
 for FILENAME in $SRC/news*gz $TGT/news*gz; do
-  OUTPUT="${FILENAME::-3}"
-  if [ ! -f "$OUTPUT" ]; then
-    echo "Decompressing $FILENAME..."
-    gunzip -k $FILENAME
-  else
-    echo "$OUTPUT already decompressed."
+  if [ -f "$FILENAME" ]; then
+    OUTPUT="${FILENAME::-3}"
+    if [ ! -f "$OUTPUT" ]; then
+      echo "Decompressing $FILENAME..."
+      gunzip -k $FILENAME
+    else
+      echo "$OUTPUT already decompressed."
+    fi
   fi
 done
 
@@ -233,90 +263,135 @@ fi
 echo "$SRC monolingual data concatenated in: $SRC_RAW"
 echo "$TGT monolingual data concatenated in: $TGT_RAW"
 
-# # check number of lines
-# if ! [[ "$(wc -l < $SRC_RAW)" -eq "$N_MONO" ]]; then echo "ERROR: Number of lines does not match! Be sure you have $N_MONO sentences in your $SRC monolingual data."; exit; fi
-# if ! [[ "$(wc -l < $TGT_RAW)" -eq "$N_MONO" ]]; then echo "ERROR: Number of lines does not match! Be sure you have $N_MONO sentences in your $TGT monolingual data."; exit; fi
 
-# preprocessing commands - special case for Romanian
-if [ "$SRC" == "ro" ]; then
-  SRC_PREPROCESSING="$REPLACE_UNICODE_PUNCT | $NORM_PUNC -l $SRC | $REM_NON_PRINT_CHAR | $NORMALIZE_ROMANIAN | $REMOVE_DIACRITICS | $TOKENIZER -l $SRC -no-escape -threads $N_THREADS"
-else
-  SRC_PREPROCESSING="$REPLACE_UNICODE_PUNCT | $NORM_PUNC -l $SRC | $REM_NON_PRINT_CHAR |                                            $TOKENIZER -l $SRC -no-escape -threads $N_THREADS"
-fi
-if [ "$TGT" == "ro" ]; then
-  TGT_PREPROCESSING="$REPLACE_UNICODE_PUNCT | $NORM_PUNC -l $TGT | $REM_NON_PRINT_CHAR | $NORMALIZE_ROMANIAN | $REMOVE_DIACRITICS | $TOKENIZER -l $TGT -no-escape -threads $N_THREADS"
-else
-  TGT_PREPROCESSING="$REPLACE_UNICODE_PUNCT | $NORM_PUNC -l $TGT | $REM_NON_PRINT_CHAR |                                            $TOKENIZER -l $TGT -no-escape -threads $N_THREADS"
-fi
+# normalize raw text
+SRC_PREPROCESSING="$REPLACE_UNICODE_PUNCT | $NORM_PUNC -l $SRC | $REM_NON_PRINT_CHAR"
+TGT_PREPROCESSING="$REPLACE_UNICODE_PUNCT | $NORM_PUNC -l $TGT | $REM_NON_PRINT_CHAR"
+  
+# apply sentencepiece
+SPM_TRAIN=$TOOLS_PATH/sentencepiece/build/src/spm_train
+SPM_ENCODE=$TOOLS_PATH/sentencepiece/build/src/spm_encode
+MODEL_PATH=$PROC_PATH/xlm.model
+SPM_INPUT_PATH=$PROC_PATH/spm_input
 
-# tokenize data
-if ! [[ -f "$SRC_TOK" ]]; then
-  echo "Tokenize $SRC monolingual data..."
-  eval "cat $SRC_RAW | $SRC_PREPROCESSING > $SRC_TOK"
-fi
+if ! [[ -f "$MODEL_PATH" ]]; then
+  cat $SRC_RAW | $SRC_PREPROCESSING > $SRC_NORM
+  cat $TGT_RAW | $TGT_PREPROCESSING > $TGT_NORM
 
-if ! [[ -f "$TGT_TOK" ]]; then
-  echo "Tokenize $TGT monolingual data..."
-  eval "cat $TGT_RAW | $TGT_PREPROCESSING > $TGT_TOK"
-fi
-echo "$SRC monolingual data tokenized in: $SRC_TOK"
-echo "$TGT monolingual data tokenized in: $TGT_TOK"
+  SPM_OPTION_SHUFFLE=""
+  if ! [[ -f "$SPM_INPUT_PATH" ]]; then
+      echo "spm_input_file is not specified. use mono data shuffled"
+      SPM_INPUT_PATH=$SRC_NORM,$TGT_NORM 
+      SPM_OPTION_SHUFFLE=" --input_sentence_size $SPM_N_SENTENCES --shuffle_input_sentence "
+  fi
 
-# reload BPE codes
-cd $MAIN_PATH
-if [ ! -f "$BPE_CODES" ] && [ -f "$RELOAD_CODES" ]; then
-  echo "Reloading BPE codes from $RELOAD_CODES ..."
-  cp $RELOAD_CODES $BPE_CODES
+  pushd $PROC_PATH
+  $SPM_TRAIN --input=$SPM_INPUT_PATH --model_prefix=xlm --vocab_size=$CODES --character_coverage=$SPM_CHARACTER_COVERAGE --model_type=unigram --control_symbols='<special0>,<special1>' --bos_id=0 --eos_id=1 --pad_id=2 --unk_id=3 $SPM_OPTION_SHUFFLE
+  popd
+
+  cat $SRC_NORM | $SPM_ENCODE --model=$MODEL_PATH --output_format=piece > $SRC_TRAIN_BPE
+  cat $TGT_NORM | $SPM_ENCODE --model=$MODEL_PATH --output_format=piece > $TGT_TRAIN_BPE
+  
+  cat $SRC_NORM $TGT_NORM | $SPM_ENCODE --model=$MODEL_PATH --generate_vocabulary > $FULL_VOCAB
 fi
 
-# learn BPE codes
-if [ ! -f "$BPE_CODES" ]; then
-  echo "Learning BPE codes..."
-  $FASTBPE learnbpe $CODES $SRC_TOK $TGT_TOK > $BPE_CODES
-fi
-echo "BPE learned in $BPE_CODES"
-
-# apply BPE codes
-if ! [[ -f "$SRC_TRAIN_BPE" ]]; then
-  echo "Applying $SRC BPE codes..."
-  $FASTBPE applybpe $SRC_TRAIN_BPE $SRC_TOK $BPE_CODES
-fi
-if ! [[ -f "$TGT_TRAIN_BPE" ]]; then
-  echo "Applying $TGT BPE codes..."
-  $FASTBPE applybpe $TGT_TRAIN_BPE $TGT_TOK $BPE_CODES
-fi
-echo "BPE codes applied to $SRC in: $SRC_TRAIN_BPE"
-echo "BPE codes applied to $TGT in: $TGT_TRAIN_BPE"
-
-# extract source and target vocabulary
-if ! [[ -f "$SRC_VOCAB" && -f "$TGT_VOCAB" ]]; then
-  echo "Extracting vocabulary..."
-  $FASTBPE getvocab $SRC_TRAIN_BPE > $SRC_VOCAB
-  $FASTBPE getvocab $TGT_TRAIN_BPE > $TGT_VOCAB
-fi
-echo "$SRC vocab in: $SRC_VOCAB"
-echo "$TGT vocab in: $TGT_VOCAB"
-
-# reload full vocabulary
-cd $MAIN_PATH
-if [ ! -f "$FULL_VOCAB" ] && [ -f "$RELOAD_VOCAB" ]; then
+if [[ -f "$RELOAD_VOCAB" ]]; then
   echo "Reloading vocabulary from $RELOAD_VOCAB ..."
   cp $RELOAD_VOCAB $FULL_VOCAB
 fi
 
-# extract full vocabulary
-if ! [[ -f "$FULL_VOCAB" ]]; then
-  echo "Extracting vocabulary..."
-  $FASTBPE getvocab $SRC_TRAIN_BPE $TGT_TRAIN_BPE > $FULL_VOCAB
-fi
-echo "Full vocab in: $FULL_VOCAB"
+# # check number of lines
+# if ! [[ "$(wc -l < $SRC_RAW)" -eq "$N_MONO" ]]; then echo "ERROR: Number of lines does not match! Be sure you have $N_MONO sentences in your $SRC monolingual data."; exit; fi
+# if ! [[ "$(wc -l < $TGT_RAW)" -eq "$N_MONO" ]]; then echo "ERROR: Number of lines does not match! Be sure you have $N_MONO sentences in your $TGT monolingual data."; exit; fi
+
+# # preprocessing commands - special case for Romanian
+# if [ "$SRC" == "ro" ]; then
+#   SRC_PREPROCESSING="$REPLACE_UNICODE_PUNCT | $NORM_PUNC -l $SRC | $REM_NON_PRINT_CHAR | $NORMALIZE_ROMANIAN | $REMOVE_DIACRITICS | $TOKENIZER -l $SRC -no-escape -threads $N_THREADS"
+# else
+#   SRC_PREPROCESSING="$REPLACE_UNICODE_PUNCT | $NORM_PUNC -l $SRC | $REM_NON_PRINT_CHAR |                                            $TOKENIZER  -l $TGT -no-escape -threads $N_THREADS"
+# fi
+# if [ "$TGT" == "ro" ]; then
+#   TGT_PREPROCESSING="$REPLACE_UNICODE_PUNCT | $NORM_PUNC -l $TGT | $REM_NON_PRINT_CHAR | $NORMALIZE_ROMANIAN | $REMOVE_DIACRITICS | $TOKENIZER -l $TGT -no-escape -threads $N_THREADS"
+# else
+#   TGT_PREPROCESSING="$REPLACE_UNICODE_PUNCT | $NORM_PUNC -l $TGT | $REM_NON_PRINT_CHAR |                                            $TOKENIZER  -l $TGT -no-escape -threads $N_THREADS"
+# fi
+#
+# # tokenize data
+# if ! [[ -f "$SRC_TOK" ]]; then
+#   echo "Tokenize $SRC monolingual data..."
+#   eval "cat $SRC_RAW | $SRC_PREPROCESSING > $SRC_TOK"
+# fi
+#
+# if ! [[ -f "$TGT_TOK" ]]; then
+#   echo "Tokenize $TGT monolingual data..."
+#   eval "cat $TGT_RAW | $TGT_PREPROCESSING > $TGT_TOK"
+# fi
+# echo "$SRC monolingual data tokenized in: $SRC_TOK"
+# echo "$TGT monolingual data tokenized in: $TGT_TOK"
+#
+# # reload BPE codes
+# cd $MAIN_PATH
+# if [ ! -f "$BPE_CODES" ] && [ -f "$RELOAD_CODES" ]; then
+#   echo "Reloading BPE codes from $RELOAD_CODES ..."
+#   cp $RELOAD_CODES $BPE_CODES
+# fi
+#
+# # learn BPE codes
+# if [ ! -f "$BPE_CODES" ]; then
+#   echo "Learning BPE codes..."
+#   $FASTBPE learnbpe $CODES $SRC_TOK $TGT_TOK > $BPE_CODES
+# fi
+# echo "BPE learned in $BPE_CODES"
+#
+# # apply BPE codes
+# if ! [[ -f "$SRC_TRAIN_BPE" ]]; then
+#   echo "Applying $SRC BPE codes..."
+#   $FASTBPE applybpe $SRC_TRAIN_BPE $SRC_TOK $BPE_CODES
+# fi
+# if ! [[ -f "$TGT_TRAIN_BPE" ]]; then
+#   echo "Applying $TGT BPE codes..."
+#   $FASTBPE applybpe $TGT_TRAIN_BPE $TGT_TOK $BPE_CODES
+# fi
+# echo "BPE codes applied to $SRC in: $SRC_TRAIN_BPE"
+# echo "BPE codes applied to $TGT in: $TGT_TRAIN_BPE"
+#
+# # extract source and target vocabulary
+# if ! [[ -f "$SRC_VOCAB" && -f "$TGT_VOCAB" ]]; then
+#   echo "Extracting vocabulary..."
+#   $FASTBPE getvocab $SRC_TRAIN_BPE > $SRC_VOCAB
+#   $FASTBPE getvocab $TGT_TRAIN_BPE > $TGT_VOCAB
+# fi
+# echo "$SRC vocab in: $SRC_VOCAB"
+# echo "$TGT vocab in: $TGT_VOCAB"
+#
+# # reload full vocabulary
+# cd $MAIN_PATH
+# if [ ! -f "$FULL_VOCAB" ] && [ -f "$RELOAD_VOCAB" ]; then
+#   echo "Reloading vocabulary from $RELOAD_VOCAB ..."
+#   cp $RELOAD_VOCAB $FULL_VOCAB
+# fi
+#
+# # extract full vocabulary
+# if ! [[ -f "$FULL_VOCAB" ]]; then
+#   echo "Extracting vocabulary..."
+#   $FASTBPE getvocab $SRC_TRAIN_BPE $TGT_TRAIN_BPE > $FULL_VOCAB
+# fi
+# echo "Full vocab in: $FULL_VOCAB"
 
 # binarize data
 if ! [[ -f "$SRC_TRAIN_BPE.pth" ]]; then
+  if ! [[ -f "$SRC_TRAIN_BPE" ]]; then
+      echo "not found $SRC_TRAIN_BPE"
+      exit
+  fi
   echo "Binarizing $SRC data..."
   $MAIN_PATH/preprocess.py $FULL_VOCAB $SRC_TRAIN_BPE
 fi
 if ! [[ -f "$TGT_TRAIN_BPE.pth" ]]; then
+  if ! [[ -f "$TGT_TRAIN_BPE" ]]; then
+      echo "not found $TGT_TRAIN_BPE"
+      exit
+  fi
   echo "Binarizing $TGT data..."
   $MAIN_PATH/preprocess.py $FULL_VOCAB $TGT_TRAIN_BPE
 fi
@@ -330,29 +405,59 @@ echo "$TGT binarized data in: $TGT_TRAIN_BPE.pth"
 
 cd $PARA_PATH
 
-echo "Downloading parallel data..."
+echo "Downloading and extracting parallel data..."
 wget -c http://data.statmt.org/wmt18/translation-task/dev.tgz
-
-echo "Extracting parallel data..."
 tar -xzf dev.tgz
 
+if [ "$SRC" == "en" -a "$TGT" == "fr" ]; then
+    wget -c http://www.statmt.org/europarl/v7/fr-en.tgz
+    tar -xzf fr-en.tgz
+fi
+if [ "$SRC" == "de" -a "$TGT" == "en" ]; then
+    wget -c http://www.statmt.org/europarl/v7/de-en.tgz
+    tar -xzf de-en.tgz
+fi
+if [ "$SRC" == "en" -a "$TGT" == "ja" ]; then
+    wget -c https://wit3.fbk.eu/archive/2017-01-trnted//texts/en/ja/en-ja.tgz
+    tar -xzf en-ja.tgz
+fi
+
+
 # check valid and test files are here
-if ! [[ -f "$PARA_SRC_VALID.sgm" ]]; then echo "$PARA_SRC_VALID.sgm is not found!"; exit; fi
-if ! [[ -f "$PARA_TGT_VALID.sgm" ]]; then echo "$PARA_TGT_VALID.sgm is not found!"; exit; fi
-if ! [[ -f "$PARA_SRC_TEST.sgm" ]];  then echo "$PARA_SRC_TEST.sgm is not found!";  exit; fi
-if ! [[ -f "$PARA_TGT_TEST.sgm" ]];  then echo "$PARA_TGT_TEST.sgm is not found!";  exit; fi
+if ! [[ -f "$PARA_SRC_VALID" ]]; then echo "$PARA_SRC_VALID is not found!"; exit; fi
+if ! [[ -f "$PARA_TGT_VALID" ]]; then echo "$PARA_TGT_VALID is not found!"; exit; fi
+if ! [[ -f "$PARA_SRC_TEST" ]];  then echo "$PARA_SRC_TEST is not found!";  exit; fi
+if ! [[ -f "$PARA_TGT_TEST" ]];  then echo "$PARA_TGT_TEST is not found!";  exit; fi
 
-echo "Tokenizing valid and test data..."
-eval "$INPUT_FROM_SGM < $PARA_SRC_VALID.sgm | $SRC_PREPROCESSING > $PARA_SRC_VALID"
-eval "$INPUT_FROM_SGM < $PARA_TGT_VALID.sgm | $TGT_PREPROCESSING > $PARA_TGT_VALID"
-eval "$INPUT_FROM_SGM < $PARA_SRC_TEST.sgm  | $SRC_PREPROCESSING > $PARA_SRC_TEST"
-eval "$INPUT_FROM_SGM < $PARA_TGT_TEST.sgm  | $TGT_PREPROCESSING > $PARA_TGT_TEST"
+# echo "Tokenizing valid and test data..."
+# eval "$INPUT_FROM_SGM < $PARA_SRC_VALID | $SRC_PREPROCESSING > $PARA_SRC_VALID"
+# eval "$INPUT_FROM_SGM < $PARA_TGT_VALID | $TGT_PREPROCESSING > $PARA_TGT_VALID"
+# eval "$INPUT_FROM_SGM < $PARA_SRC_TEST  | $SRC_PREPROCESSING > $PARA_SRC_TEST"
+# eval "$INPUT_FROM_SGM < $PARA_TGT_TEST  | $TGT_PREPROCESSING > $PARA_TGT_TEST"
 
-echo "Applying BPE to valid and test files..."
-$FASTBPE applybpe $PARA_SRC_VALID_BPE $PARA_SRC_VALID $BPE_CODES $SRC_VOCAB
-$FASTBPE applybpe $PARA_TGT_VALID_BPE $PARA_TGT_VALID $BPE_CODES $TGT_VOCAB
-$FASTBPE applybpe $PARA_SRC_TEST_BPE  $PARA_SRC_TEST  $BPE_CODES $SRC_VOCAB
-$FASTBPE applybpe $PARA_TGT_TEST_BPE  $PARA_TGT_TEST  $BPE_CODES $TGT_VOCAB
+# echo "Applying BPE to valid and test files..."
+# $FASTBPE applybpe $PARA_SRC_VALID_BPE $PARA_SRC_VALID $BPE_CODES $SRC_VOCAB
+# $FASTBPE applybpe $PARA_TGT_VALID_BPE $PARA_TGT_VALID $BPE_CODES $TGT_VOCAB
+# $FASTBPE applybpe $PARA_SRC_TEST_BPE  $PARA_SRC_TEST  $BPE_CODES $SRC_VOCAB
+# $FASTBPE applybpe $PARA_TGT_TEST_BPE  $PARA_TGT_TEST  $BPE_CODES $TGT_VOCAB
+
+echo "Creating valid and test data"
+
+function create_para_bpe()
+{
+    INPUT=$1
+    OUTPUT=$2
+    ext="${INPUT##*.}"
+    if [[ $ext = "sgm" || $ext = 'xml' ]];then
+        eval "$INPUT_FROM_SGM < $INPUT | $SRC_PREPROCESSING | $SPM_ENCODE --model=$MODEL_PATH --output_format=piece > $OUTPUT"
+    else
+        cat $INPUT | $SRC_PREPROCESSING | $SPM_ENCODE --model=$MODEL_PATH --output_format=piece > $OUTPUT
+    fi
+}
+create_para_bpe $PARA_SRC_VALID $PARA_SRC_VALID_BPE
+create_para_bpe $PARA_TGT_VALID $PARA_TGT_VALID_BPE
+create_para_bpe $PARA_SRC_TEST $PARA_SRC_TEST_BPE
+create_para_bpe $PARA_TGT_TEST $PARA_TGT_TEST_BPE
 
 echo "Binarizing data..."
 rm -f $PARA_SRC_VALID_BPE.pth $PARA_TGT_VALID_BPE.pth $PARA_SRC_TEST_BPE.pth $PARA_TGT_TEST_BPE.pth
@@ -361,6 +466,12 @@ $MAIN_PATH/preprocess.py $FULL_VOCAB $PARA_TGT_VALID_BPE
 $MAIN_PATH/preprocess.py $FULL_VOCAB $PARA_SRC_TEST_BPE
 $MAIN_PATH/preprocess.py $FULL_VOCAB $PARA_TGT_TEST_BPE
 
+
+echo "Creating parallel data for supervised training"
+create_para_bpe $PARA_SRC_TRAIN $PARA_SRC_TRAIN_BPE
+create_para_bpe $PARA_TGT_TRAIN $PARA_TGT_TRAIN_BPE
+$MAIN_PATH/preprocess.py $FULL_VOCAB $PARA_SRC_TRAIN_BPE
+$MAIN_PATH/preprocess.py $FULL_VOCAB $PARA_TGT_TRAIN_BPE
 
 #
 # Link monolingual validation and test data to parallel data
