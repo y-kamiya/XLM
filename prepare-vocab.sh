@@ -3,6 +3,7 @@
 CODES=60000     # number of BPE codes
 SPM_CHARACTER_COVERAGE=1.0
 SPM_N_SENTENCES=1000000
+SPM_VOCAB_THRESHOLD=50
 
 MAIN_PATH=$PWD
 DATA_PATH=$PWD/data
@@ -51,7 +52,7 @@ cat ${norms[@]} | $SPM_ENCODE --model=xlm.model --generate_vocabulary > $FULL_VO
 echo "creating tokenized file of each lang"
 for norm in ${norms[@]}; do
     lang=$(basename $norm .norm)
-    cat $norm | $SPM_ENCODE --model=xlm.model --output_format=piece > $PROC_PATH/train.$lang
+    cat $norm | $SPM_ENCODE --model=xlm.model --output_format=piece --vocabulary=$FULL_VOCAB --vocabulary_threshold=$SPM_VOCAB_THRESHOLD > $PROC_PATH/train.$lang
 done
 
 popd

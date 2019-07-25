@@ -16,6 +16,7 @@ CODES=60000     # number of BPE codes
 N_THREADS=16    # number of threads in data preprocessing
 SPM_CHARACTER_COVERAGE=1.0
 SPM_N_SENTENCES=2000000
+SPM_VOCAB_THRESHOLD=50
 
 
 #
@@ -289,10 +290,10 @@ if ! [[ -f "$MODEL_PATH" ]]; then
   $SPM_TRAIN --input=$SPM_INPUT_PATH --model_prefix=xlm --vocab_size=$CODES --character_coverage=$SPM_CHARACTER_COVERAGE --model_type=unigram --control_symbols='<special0>,<special1>' --bos_id=0 --eos_id=1 --pad_id=2 --unk_id=3 $SPM_OPTION_SHUFFLE
   popd
 
-  cat $SRC_NORM | $SPM_ENCODE --model=$MODEL_PATH --output_format=piece > $SRC_TRAIN_BPE
-  cat $TGT_NORM | $SPM_ENCODE --model=$MODEL_PATH --output_format=piece > $TGT_TRAIN_BPE
-  
   cat $SRC_NORM $TGT_NORM | $SPM_ENCODE --model=$MODEL_PATH --generate_vocabulary > $FULL_VOCAB
+
+  cat $SRC_NORM | $SPM_ENCODE --model=$MODEL_PATH --output_format=piece --vocabulary=$FULL_VOCAB --vocabulary_threshold=$SPM_VOCAB_THRESHOLD > $SRC_TRAIN_BPE
+  cat $TGT_NORM | $SPM_ENCODE --model=$MODEL_PATH --output_format=piece --vocabulary=$FULL_VOCAB --vocabulary_threshold=$SPM_VOCAB_THRESHOLD > $TGT_TRAIN_BPE
 fi
 
 if [[ -f "$RELOAD_VOCAB" ]]; then
@@ -449,9 +450,9 @@ function create_para_bpe()
     OUTPUT=$2
     ext="${INPUT##*.}"
     if [[ $ext = "sgm" || $ext = 'xml' ]];then
-        eval "$INPUT_FROM_SGM < $INPUT | $SRC_PREPROCESSING | $SPM_ENCODE --model=$MODEL_PATH --output_format=piece > $OUTPUT"
+        eval "$INPUT_FROM_SGM < $INPUT | $SRC_PREPROCESSING | $SPM_ENCODE --model=$MODEL_PATH --output_format=piece --vocabulary=$FULL_VOCAB --vocabulary_threshold=$SPM_VOCAB_THRESHOLD > $OUTPUT"
     else
-        cat $INPUT | $SRC_PREPROCESSING | $SPM_ENCODE --model=$MODEL_PATH --output_format=piece > $OUTPUT
+        cat $INPUT | $SRC_PREPROCESSING | $SPM_ENCODE --model=$MODEL_PATH --output_format=piece --vocabulary=$FULL_VOCAB --vocabulary_threshold=$SPM_VOCAB_THRESHOLD > $OUTPUT
     fi
 }
 create_para_bpe $PARA_SRC_VALID $PARA_SRC_VALID_BPE
